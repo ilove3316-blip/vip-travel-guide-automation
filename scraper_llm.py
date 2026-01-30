@@ -33,11 +33,17 @@ def capture_screenshot_with_selenium(url: str) -> Optional[bytes]:
     
     # Configure Chrome Options
     chrome_options = Options()
-    chrome_options.add_argument("--headless=new")  # Modern headless mode
+    chrome_options.add_argument("--headless=new") 
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--window-size=1280,1080")
-    chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+    chrome_options.add_argument("--disable-dev-shm-usage") # Vital for container environments (Streamlit Cloud)
+    chrome_options.add_argument("--window-size=1920,1080")
+    
+    # Stealth settings
+    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    chrome_options.add_experimental_option("useAutomationExtension", False)
+    chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
     
     driver = None
     try:
@@ -45,18 +51,23 @@ def capture_screenshot_with_selenium(url: str) -> Optional[bytes]:
         service = Service(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=service, options=chrome_options)
         
+        # Stealth: Remove navigator.webdriver property
+        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+
         # Navigate
         driver.set_page_load_timeout(30)
         driver.get(url)
         
-        # Wait for lazy loading (simulate scroll)
+        # Explicit wait + interaction simulation
+        time.sleep(3) # Wait for initial load
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight/2);")
+        time.sleep(1)
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
         time.sleep(2) 
-        driver.execute_script("window.scrollTo(0, 0);") # Scroll back up
+        driver.execute_script("window.scrollTo(0, 0);")
         time.sleep(1)
         
         # Take Screenshot
-        # Selenium returns bytes directly, let's grab it
         png_data = driver.get_screenshot_as_png()
         
         print("[Success] Screenshot captured successfully.")
