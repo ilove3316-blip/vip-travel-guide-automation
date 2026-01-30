@@ -113,15 +113,17 @@ if submit_button:
     flight_date_obj = datetime.now() # Default
     
     if extracted_date_str:
-        try:
-            # Try parsing YYYY.MM.DD
-            flight_date_obj = datetime.strptime(extracted_date_str.strip(), "%Y.%m.%d")
-        except:
-             # Try parsing YYYY-MM-DD or other formats if needed
+        import re
+        # Regex to find YYYY.MM.DD or YYYY-MM-DD
+        match = re.search(r'(\d{4})[.-](\d{1,2})[.-](\d{1,2})', str(extracted_date_str))
+        if match:
             try:
-                flight_date_obj = datetime.strptime(extracted_date_str.strip(), "%Y-%m-%d")
-            except:
-                st.warning(f"날짜 형식이 인식되지 않아 오늘 날짜로 대체합니다. ({extracted_date_str})")
+                year, month, day = map(int, match.groups())
+                flight_date_obj = datetime(year, month, day)
+            except ValueError:
+                 st.warning(f"날짜 형식이 올바르지 않아 오늘 날짜로 대체합니다. ({extracted_date_str})")
+        else:
+             st.warning(f"날짜 형식이 인식되지 않아 오늘 날짜로 대체합니다. ({extracted_date_str})")
     
     # 2. 픽업 섹션 생성
     is_pickup_provided = (pickup_service_option == '제공함 (유)')
