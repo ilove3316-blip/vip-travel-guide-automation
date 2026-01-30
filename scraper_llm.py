@@ -157,7 +157,8 @@ def analyze_content(url=None, image_bytes=None, mime_type="image/jpeg"):
     - **FLIGHTS**: Look for '항공 스케줄' or '교통편'. Flight numbers look like 'KE901', 'OZ501'. Times are 'HH:MM'.
     - **VISUAL PROCESSING**: The information might be in a tabular format (grid). Read rows/columns carefully.
     - If the date is 2026, ensure you extract it correctly.
-    - **DATE FORMAT**: Extract dates as 'YYYY.MM.DD' strictly. Remove day names like '(Mon)' or '(월)'.
+    - **DATE FORMAT**: Look for dates like '2026.07.12(일)'. Extract ONLY the numeric part '2026.07.12'.
+    - **IMPORTANT**: If the month or day is not found, return empty string "". NEVER return "2026.00.00" or similar placeholders.
     - Return ONLY valid JSON.
     """
 
