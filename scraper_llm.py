@@ -153,7 +153,11 @@ def analyze_content(url=None, image_bytes=None, mime_type="image/jpeg"):
 
     Directives:
     - **CRITICAL**: The image is a long travel itinerary. You MUST look at the ENTIRE image.
-    - **TIPPING/COSTS**: Look specifically for a section named '여행상품 핵심정보', '포함사항/불포함사항', or '참고사항'. Find the "가이드/기사 경비" (Guide/Driver Fee) - it is often a specific amount like '100유로' or '100달러'. It is almost ALWAYS in the text. Do not return 'Check URL' unless truly invisible.
+    - **TIPPING/COSTS (CRITICAL)**: 
+        1. First, look for "가이드/기사 경비" under '포함내역' (Included) or '불포함내역' (Excluded).
+        2. IF it appears in '포함내역' OR if you see "가이드&기사경비 포함" (or similar) ANYWHERE in the image -> Output: "상품가 포함 (현지 지불 없음)".
+        3. IF it appears in '불포함내역' -> Output: "1인 [금액] [통화] (현지 지불)" (e.g. "1인 100유로 현지 지불").
+        4. Be careful: Sometimes '가이드/기사' header exists in BOTH sections. Read the text below it carefully.
     - **FLIGHTS**: Look for '항공 스케줄' or '교통편'. Flight numbers look like 'KE901', 'OZ501'. Times are 'HH:MM'.
     - **VISUAL PROCESSING**: The information might be in a tabular format (grid). Read rows/columns carefully.
     - If the date is 2026, ensure you extract it correctly.
