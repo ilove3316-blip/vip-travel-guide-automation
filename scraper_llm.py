@@ -177,40 +177,4 @@ def analyze_content(url=None, image_bytes=None, mime_type="image/jpeg"):
                 contents=[prompt] + content_parts
             )
             
-            # Parse JSON
-            result_text = response.text.strip()
-            # Clean possible markdown block
-            if result_text.startswith("```"):
-                lines = result_text.splitlines()
-                if lines[0].startswith("```"):
-                    lines = lines[1:]
-                if lines and lines[-1].startswith("```"):
-                    lines = lines[:-1]
-                result_text = "\n".join(lines).strip()
-                
-            return json.loads(result_text)
             
-        except Exception as e:
-            error_str = str(e)
-            current_time = datetime.datetime.now().strftime('%H:%M:%S')
-            print(f"[{current_time}] [Warning] Gemini API Error (Attempt {attempt + 1}/{max_retries}): {e}")
-            
-            # Check for Rate Limit (429)
-            if "429" in error_str or "Resource has been exhausted" in error_str:
-                if attempt < max_retries - 1:
-                    wait_time = base_delay * (2 ** attempt)  # 10, 20, 40...
-                    print(f"[{current_time}] [Wait] Rate limit hit. Waiting {wait_time} seconds before retrying...")
-                    time.sleep(wait_time)
-                    continue
-                else:
-                     return {"error": f"API 할당량 초과로 인해 {max_retries}회 재시도 후에도 실패했습니다. 잠시 후(몇 분 뒤) 다시 시도해주세요. (Error: {e})"}
-            else:
-                # Non-retriable error
-                return {"error": f"Non-retriable error: {str(e)}"}
-
-if __name__ == "__main__":
-    # Test logic
-    test_url = "https://www.modetour.com/package/98949020?MLoc=99&Pnum=98949020&Sno=C112564&ANO=1221281&thru=crs"
-    print(f"Testing auto-screenshot for: {test_url}")
-    result = analyze_content(url=test_url)
-    print(json.dumps(result, indent=2, ensure_ascii=False))
