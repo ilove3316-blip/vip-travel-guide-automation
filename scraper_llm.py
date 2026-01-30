@@ -24,19 +24,22 @@ if not API_KEY:
 
 # genai.configure(api_key=API_KEY) # Removed for new SDK
 
-def capture_screenshot_with_selenium(url: str) -> Optional[bytes]:
+import base64
+from selenium.webdriver.common.print_page_options import PrintOptions
+
+def capture_pdf_from_url(url: str) -> Optional[bytes]:
     """
-    Captures a full-page screenshot using Selenium (Chrome).
-    Handles 'blinding' content by rendering javascript.
+    Captures the webpage as a PDF using Selenium (Chrome DevTools).
+    This is superior to screenshots because it preserves text data even if fonts are missing.
     """
-    print(f"[Selenium] Accessing URL via automated browser (Selenium): {url}")
+    print(f"[Selenium] Accessing URL to generate PDF: {url}")
     
     # Configure Chrome Options
     chrome_options = Options()
     chrome_options.add_argument("--headless=new") 
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage") # Vital for container environments (Streamlit Cloud)
+    chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--window-size=1920,1080")
     
     # Stealth settings
@@ -47,34 +50,35 @@ def capture_screenshot_with_selenium(url: str) -> Optional[bytes]:
     
     driver = None
     try:
-        # Initialize Driver
         service = Service(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=service, options=chrome_options)
         
-        # Stealth: Remove navigator.webdriver property
+        # Stealth
         driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
-        # Navigate
-        driver.set_page_load_timeout(30)
+        driver.set_page_load_timeout(60) # Increased timeout for PDF rendering
         driver.get(url)
         
-        # Explicit wait + interaction simulation
-        time.sleep(3) # Wait for initial load
+        # Explicit wait + interaction to trigger lazy loading
+        time.sleep(3)
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight/2);")
         time.sleep(1)
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        time.sleep(2) 
-        driver.execute_script("window.scrollTo(0, 0);")
-        time.sleep(1)
+        time.sleep(2)
+        driver.execute_script("window.scrollTo(0, 0);") # Top
+        time.sleep(2) # Wait for rendering
         
-        # Take Screenshot
-        png_data = driver.get_screenshot_as_png()
+        # Print to PDF
+        print_options = PrintOptions()
+        print_options.background = True # Include background graphics
         
-        print("[Success] Screenshot captured successfully.")
-        return png_data
+        pdf_b64 = driver.print_page(print_options)
+        
+        print("[Success] PDF generated successfully.")
+        return base64.b64decode(pdf_b64)
         
     except Exception as e:
-        print(f"[Error] Error capturing screenshot: {e}")
+        print(f"[Error] Error generating PDF: {e}")
         return None
     finally:
         if driver:
@@ -83,8 +87,8 @@ def capture_screenshot_with_selenium(url: str) -> Optional[bytes]:
 def analyze_content(url=None, image_bytes=None, mime_type="image/jpeg"):
     """
     Analyzes content.
-    1. If user uploads an image, use it.
-    2. If user provides a URL, AUTO-CAPTURE a screenshot using Selenium, then use that.
+    1. If user uploads an image/PDF, use it.
+    2. If user provides a URL, AUTO-GENERATE a PDF using Selenium, then use that.
     """
     client = genai.Client(api_key=API_KEY)
     
@@ -94,24 +98,25 @@ def analyze_content(url=None, image_bytes=None, mime_type="image/jpeg"):
     if not url and not image_bytes:
         return {"error": "URL이나 이미지를 입력해주세요."}
 
-    # 1. Image Logic (User Uploaded)
+    # 1. User Uploaded File
     if image_bytes:
-        print("Processing User Uploaded Image...")
+        print(f"Processing User Uploaded File ({mime_type})...")
         content_parts.append(types.Part.from_bytes(data=image_bytes, mime_type=mime_type))
-        content_parts.append("This is a screenshot of a travel itinerary provided by the user.")
+        content_parts.append("This is a travel itinerary document provided by the user.")
 
-    # 2. URL Logic (Auto-Screenshot)
+    # 2. URL Logic (Auto-PDF)
     elif url:
-        print(f"Processing URL with Auto-Screenshot: {url}")
+        print(f"Processing URL with Auto-PDF: {url}")
         
-        # 🚀 Capture Screenshot automatically
-        auto_screenshot = capture_screenshot_with_selenium(url)
+        # 🚀 Generate PDF automatically
+        auto_pdf = capture_pdf_from_url(url)
         
-        if auto_screenshot:
-            content_parts.append(types.Part.from_bytes(data=auto_screenshot, mime_type="image/png"))
-            content_parts.append(f"This is a screenshot of the web page at {url}. Analyze the visual content directly. Resolve any blinded text.")
+        if auto_pdf:
+            # Use application/pdf for Gemini
+            content_parts.append(types.Part.from_bytes(data=auto_pdf, mime_type="application/pdf"))
+            content_parts.append(f"This is a PDF version of the web page at {url}. Analyze the text and layout.")
         else:
-            return {"error": "자동 스크린샷 캡처에 실패했습니다. (보안 설정이 강화된 사이트일 수 있습니다. 직접 스크린샷을 찍어서 업로드해주세요.)"}
+            return {"error": "자동 PDF 생성에 실패했습니다. (보안 설정이 강화된 사이트일 수 있습니다. 직접 파일을 업로드해주세요.)"}
 
     # Prompt Engineering (Updated for Visual Analysis)
     prompt = """
